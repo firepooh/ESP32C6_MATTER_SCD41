@@ -17,7 +17,7 @@ sdkconfig.old
 project_description.json
 
 # >>> 선택 사항: sdkconfig 무시 여부
-# sdkconfig      ← 팀에서 개별 설정을 쓰는 경우 주석 제거
+sdkconfig     # ← 팀에서 개별 설정을 쓰는 경우 주석 제거
 # sdkconfig.defaults
 
 # === CMake / Ninja Artifacts ===
