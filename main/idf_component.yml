@@ -2,3 +2,4 @@ dependencies:
   espressif/button:
     version: ^4
   esp-idf-lib/scd4x: '*'
+  esp-idf-lib/i2cdev: '*'

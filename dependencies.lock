@@ -25,7 +25,7 @@ dependencies:
       require: private
       version: '*'
     source:
-      registry_url: https://components.espressif.com
+      registry_url: https://components.espressif.com/
       type: service
     targets:
     - esp32
@@ -254,6 +254,7 @@ dependencies:
       type: idf
     version: 5.4.2
 direct_dependencies:
+- esp-idf-lib/i2cdev
 - esp-idf-lib/scd4x
 - espressif/button
 - espressif/esp_delta_ota
@@ -264,6 +265,6 @@ direct_dependencies:
 - espressif/json_generator
 - espressif/json_parser
 - espressif/mdns
-manifest_hash: aaba0a29d2e43b2d211f0b3f4acf8d0580d123a68b80af0ce707ed9bdaeae754
+manifest_hash: 83461d1c7b9679d84581a66c370ecee58f7728b89211d849bb47277fdb0f5007
 target: esp32c6
 version: 2.0.0
