@@ -1,4 +1,70 @@
 dependencies:
+  esp-idf-lib/esp_idf_lib_helpers:
+    component_hash: a8049b1e609679fb54b2d57b0399dd29c4d1fda09a797edac9926f7810aa5703
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    targets:
+    - esp32
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h2
+    - esp32p4
+    - esp32s2
+    - esp32s3
+    version: 1.3.10
+  esp-idf-lib/i2cdev:
+    component_hash: 11c08f9e1a7d346b5dd763196dc2567cf2209ae49042402c2c2d296624601c14
+    dependencies:
+    - name: esp-idf-lib/esp_idf_lib_helpers
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    targets:
+    - esp32
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h2
+    - esp32p4
+    - esp32s2
+    - esp32s3
+    version: 2.0.8
+  esp-idf-lib/scd4x:
+    component_hash: 75ce5e78e24eb0c1e601564f0ded14ea8d994de6e499c10b5f1700f557df8563
+    dependencies:
+    - name: esp-idf-lib/esp_idf_lib_helpers
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    - name: esp-idf-lib/i2cdev
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    targets:
+    - esp32
+    - esp32c2
+    - esp32c3
+    - esp32c5
+    - esp32c6
+    - esp32c61
+    - esp32h2
+    - esp32p4
+    - esp32s2
+    - esp32s3
+    version: 1.0.8
   espressif/button:
     component_hash: f53face2ab21fa0ffaf4cf0f6e513d393f56df6586bb2ad1146120f03f19ee05
     dependencies:
@@ -188,6 +254,7 @@ dependencies:
       type: idf
     version: 5.4.2
 direct_dependencies:
+- esp-idf-lib/scd4x
 - espressif/button
 - espressif/esp_delta_ota
 - espressif/esp_encrypted_img
@@ -197,6 +264,6 @@ direct_dependencies:
 - espressif/json_generator
 - espressif/json_parser
 - espressif/mdns
-manifest_hash: d8db0808683549b72642483f60717c5320537ef213a738d1b4bd46439ba7bd31
+manifest_hash: aaba0a29d2e43b2d211f0b3f4acf8d0580d123a68b80af0ce707ed9bdaeae754
 target: esp32c6
 version: 2.0.0
