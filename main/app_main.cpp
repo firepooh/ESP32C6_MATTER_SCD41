@@ -123,6 +123,9 @@ static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, uint16
     return err;
 }
 
+extern void sensor_init( void );
+extern void sensor_get( void );
+
 extern "C" void app_main()
 {
     esp_err_t err = ESP_OK;
@@ -143,6 +146,14 @@ extern "C" void app_main()
 #ifdef CONFIG_ENABLE_USER_ACTIVE_MODE_TRIGGER_BUTTON
     app_driver_button_init();
 #endif
+
+    sensor_init();
+
+    for( int i = 0; i < 10; i++ ) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        sensor_get();
+    }
+
     /* Create a Matter node and add the mandatory Root Node device type on endpoint 0 */
     node::config_t node_config;
     node_t *node = node::create(&node_config, app_attribute_update_cb, app_identification_cb);
