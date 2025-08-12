@@ -24,9 +24,14 @@ static i2c_dev_t dev;
 
 void sensor_init( void )
 {
+    dev.cfg.sda_pullup_en = 1;
+    dev.cfg.scl_pullup_en = 1;
+    
     ESP_ERROR_CHECK(i2cdev_init());    
+    
 
     ESP_ERROR_CHECK(scd4x_init_desc(&dev, I2C_MASTER_NUM, CONFIG_EXAMPLE_I2C_MASTER_SDA, CONFIG_EXAMPLE_I2C_MASTER_SCL));
+    dev.cfg.master.clk_speed = 1000000; // 400 kHz
 
     ESP_LOGI(TAG_SENSOR, "Initializing sensor...");
     ESP_ERROR_CHECK(scd4x_wake_up(&dev));
@@ -42,20 +47,17 @@ void sensor_init( void )
     ESP_LOGI(TAG_SENSOR, "Periodic measurements started");
 }
 
-void sensor_get( void ) 
+esp_err_t sensor_get( float *temp, float *humidity, uint16_t *co2 )
 {
-    uint16_t co2;
-    float temperature, humidity;    
-
-    esp_err_t res = scd4x_read_measurement(&dev, &co2, &temperature, &humidity);
+    esp_err_t res = scd4x_read_measurement(&dev, co2, temp, humidity);
     if (res != ESP_OK)
     {
         ESP_LOGE(TAG_SENSOR, "Error reading results %d (%s)", res, esp_err_to_name(res));
     }
 
-    ESP_LOGI(TAG_SENSOR, "CO2: %u ppm", co2);
-    ESP_LOGI(TAG_SENSOR, "Temperature: %.2f °C", temperature);
-    ESP_LOGI(TAG_SENSOR, "Humidity: %.2f %%", humidity);    
+    ESP_LOGI(TAG_SENSOR, "CO2: %u ppm, Temperature: %.2f °C, Humidity: %.2f %%", *co2, *temp, *humidity);
+
+    return res;
 }
 
 
