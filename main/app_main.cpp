@@ -33,16 +33,32 @@
 #include <app/server/CommissioningWindowManager.h>
 #include <app/server/Server.h>
 
+#include <app-common/zap-generated/cluster-objects.h>  // enum 정의 필요 시
+
 static const char *TAG = "app_main";
 
 using namespace esp_matter;
 using namespace esp_matter::attribute;
 using namespace esp_matter::endpoint;
 using namespace chip::app::Clusters;
+using namespace chip::app;
+namespace CDCM = chip::app::Clusters::CarbonDioxideConcentrationMeasurement;
+namespace NM = chip::app::Clusters::CarbonDioxideConcentrationMeasurement;
 
 extern void sensor_init( void );
 extern esp_err_t sensor_get( float *temp, float *humidity, uint16_t *co2 );
 
+
+// CO2(ppm) → AirQuality(enum) 간단 매핑
+static uint8_t map_co2_to_air_quality_enum(float ppm) {
+    using AQ = Clusters::AirQuality::AirQualityEnum;
+    if (ppm < 600)   return (uint8_t)AQ::kGood;
+    if (ppm < 1000)  return (uint8_t)AQ::kFair;
+    if (ppm < 1500)  return (uint8_t)AQ::kModerate;
+    if (ppm < 2000)  return (uint8_t)AQ::kPoor;
+    if (ppm < 5000)  return (uint8_t)AQ::kVeryPoor;
+    return (uint8_t)AQ::kExtremelyPoor;
+}
 
 using scd4x_sensor_cb_t = void (*)(uint16_t endpoint_id, float value, void *user_data);
 
@@ -116,19 +132,34 @@ static void humidity_sensor_notification(uint16_t endpoint_id, float humidity, v
 
 // CO2 concentration measurement
 // represents CO2 concentration in parts per million (ppm)
-static void co2_sensor_notification(uint16_t endpoint_id, float co2, void *user_data)
+static void co2_sensor_notification(uint16_t endpoint_id, float co2_ppm, void *user_data)
 {
-    // schedule the attribute update so that we can report it from matter thread
-    chip::DeviceLayer::SystemLayer().ScheduleLambda([endpoint_id, co2]() {
-        attribute_t * attribute = attribute::get(endpoint_id,
-                                                 CarbonDioxideConcentrationMeasurement::Id,
-                                                 CarbonDioxideConcentrationMeasurement::Attributes::MeasuredValue::Id);
+    chip::DeviceLayer::SystemLayer().ScheduleLambda([endpoint_id, co2_ppm]() {
+        // 1) CO2 MeasuredValue(float) 갱신
+        if (auto *attr = attribute::get(endpoint_id,
+                Clusters::CarbonDioxideConcentrationMeasurement::Id,
+                Clusters::CarbonDioxideConcentrationMeasurement::Attributes::MeasuredValue::Id)) {
 
-        esp_matter_attr_val_t val = esp_matter_invalid(NULL);
-        attribute::get_val(attribute, &val);
-        val.val.f = co2;  // CO2 값은 float로 직접 저장 (ppm 단위)
+            esp_matter_attr_val_t v = esp_matter_invalid(NULL);
+            attribute::get_val(attr, &v);
+            v.val.f = co2_ppm;                 // 타입 지정 불필요(속성 타입 유지)
+            attribute::update(endpoint_id,
+                Clusters::CarbonDioxideConcentrationMeasurement::Id,
+                Clusters::CarbonDioxideConcentrationMeasurement::Attributes::MeasuredValue::Id, &v);
+        }
 
-        attribute::update(endpoint_id, CarbonDioxideConcentrationMeasurement::Id, CarbonDioxideConcentrationMeasurement::Attributes::MeasuredValue::Id, &val);
+        // 2) AirQuality(enum) 갱신 → HA의 "Air quality" 채워짐
+        if (auto *attr_aq = attribute::get(endpoint_id,
+                Clusters::AirQuality::Id,
+                Clusters::AirQuality::Attributes::AirQuality::Id)) {
+
+            esp_matter_attr_val_t v = esp_matter_invalid(NULL);
+            attribute::get_val(attr_aq, &v);
+            v.val.u8 = map_co2_to_air_quality_enum(co2_ppm);  // enum 값
+            attribute::update(endpoint_id,
+                Clusters::AirQuality::Id,
+                Clusters::AirQuality::Attributes::AirQuality::Id, &v);
+        }
     });
 }
 
@@ -322,7 +353,7 @@ extern "C" void app_main()
 #endif
 
     sensor_init();
-#if 1
+#if 0
     float temp, humidity;
     uint16_t co2;
 
@@ -336,9 +367,11 @@ extern "C" void app_main()
     node_t *node = node::create(&node_config, app_attribute_update_cb, app_identification_cb);
     ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
 
+#if 0
     endpoint::on_off_light::config_t endpoint_config;
     endpoint_t *app_endpoint = endpoint::on_off_light::create(node, &endpoint_config, ENDPOINT_FLAG_NONE, NULL);
     ABORT_APP_ON_FAILURE(app_endpoint != nullptr, ESP_LOGE(TAG, "Failed to create on off light endpoint"));
+#endif    
 
     // add temperature sensor device
     temperature_sensor::config_t temp_sensor_config;
@@ -354,7 +387,61 @@ extern "C" void app_main()
     air_quality_sensor::config_t co2_sensor_config;
     endpoint_t * co2_sensor_ep = air_quality_sensor::create(node, &co2_sensor_config, ENDPOINT_FLAG_NONE, NULL);
     ABORT_APP_ON_FAILURE(co2_sensor_ep != nullptr, ESP_LOGE(TAG, "Failed to create CO2 sensor endpoint"));
-    
+
+    // [ADD] Air Quality 엔드포인트에 CO2 농도 측정 클러스터(서버) 붙이기
+    cluster_t *co2_cluster = cluster::create(co2_sensor_ep,
+    CarbonDioxideConcentrationMeasurement::Id, CLUSTER_FLAG_SERVER);
+    ABORT_APP_ON_FAILURE(co2_cluster != nullptr, ESP_LOGE(TAG, "Failed to create CO2 cluster"));    
+
+{
+    using namespace chip::app::Clusters;
+
+    // 1) MeasuredValue (float = 0.0)
+    if (!attribute::get(co2_cluster,
+        Clusters::CarbonDioxideConcentrationMeasurement::Attributes::MeasuredValue::Id)) {
+        esp_matter_attr_val_t v = esp_matter_invalid(NULL);
+        v.type  = ESP_MATTER_VAL_TYPE_FLOAT;
+        v.val.f = 0.0f;
+        attribute::create(co2_cluster,
+            Clusters::CarbonDioxideConcentrationMeasurement::Attributes::MeasuredValue::Id,
+            /*flags*/0, /*value*/ v);
+    }
+
+    // 2) MeasurementUnit (uint8 = ppm)
+    if (!attribute::get(co2_cluster,
+        Clusters::CarbonDioxideConcentrationMeasurement::Attributes::MeasurementUnit::Id)) {
+        esp_matter_attr_val_t v = esp_matter_invalid(NULL);
+        v.type   = ESP_MATTER_VAL_TYPE_UINT8;
+        v.val.u8 = (uint8_t)Clusters::CarbonDioxideConcentrationMeasurement::MeasurementUnitEnum::kPpm;
+        attribute::create(co2_cluster,
+            Clusters::CarbonDioxideConcentrationMeasurement::Attributes::MeasurementUnit::Id,
+            0, v);
+    }
+
+    // 3) MinMeasuredValue (float = 0.0)
+    if (!attribute::get(co2_cluster,
+        Clusters::CarbonDioxideConcentrationMeasurement::Attributes::MinMeasuredValue::Id)) {
+        esp_matter_attr_val_t v = esp_matter_invalid(NULL);
+        v.type  = ESP_MATTER_VAL_TYPE_FLOAT;
+        v.val.f = 0.0f;
+        attribute::create(co2_cluster,
+            Clusters::CarbonDioxideConcentrationMeasurement::Attributes::MinMeasuredValue::Id,
+            0, v);
+    }
+
+    // 4) MaxMeasuredValue (float = 40000.0)
+    if (!attribute::get(co2_cluster,
+        Clusters::CarbonDioxideConcentrationMeasurement::Attributes::MaxMeasuredValue::Id)) {
+        esp_matter_attr_val_t v = esp_matter_invalid(NULL);
+        v.type  = ESP_MATTER_VAL_TYPE_FLOAT;
+        v.val.f = 40000.0f;
+        attribute::create(co2_cluster,
+            Clusters::CarbonDioxideConcentrationMeasurement::Attributes::MaxMeasuredValue::Id,
+            0, v);
+    }
+}
+
+
     static scd4x_sensor_config_t scd4x_config = {
         .temperature = {
             .cb = temp_sensor_notification,
