@@ -6,6 +6,14 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
+/*
+  SCD4x patch : https://github.com/UncleRus/esp-idf-lib/pull/700
+
+  rm -rf managed_components/
+  rm -f dependencies.lock
+  idf.py fullclean
+*/
+
 #include <esp_err.h>
 #include <esp_log.h>
 #include <nvs_flash.h>
@@ -318,9 +326,9 @@ extern "C" void app_main()
     float temp, humidity;
     uint16_t co2;
 
-    for( int i = 0; i < 10; i++ ) {
-        vTaskDelay(pdMS_TO_TICKS(500000));
-        //sensor_get(&temp, &humidity, &co2);
+    for( int i = 0; i < 100000; i++ ) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        sensor_get(&temp, &humidity, &co2);
     }
 #endif
     /* Create a Matter node and add the mandatory Root Node device type on endpoint 0 */

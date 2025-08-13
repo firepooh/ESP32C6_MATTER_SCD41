@@ -1,5 +1,16 @@
 dependencies:
   espressif/button:
     version: ^4
-  esp-idf-lib/scd4x: '*'
-  esp-idf-lib/i2cdev: '*'
+  # i2cdev & scd4x 를 '모노레포(esp-idf-lib)'의 같은 커밋으로 고정
+  esp-idf-lib/i2cdev:
+    git: https://github.com/UncleRus/esp-idf-lib.git
+    path: components/i2cdev
+    version: 820e6f17b489f6f0e741e84d5dbe8601cea10564
+
+  esp-idf-lib/scd4x:
+    git: https://github.com/UncleRus/esp-idf-lib.git
+    path: components/scd4x
+    version: 820e6f17b489f6f0e741e84d5dbe8601cea10564
+
+  esp-idf-lib/esp_idf_lib_helpers:
+    version: "*"    
